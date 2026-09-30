@@ -43,8 +43,6 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 .kpi .lbl {{ font-size:12.5px; color:{rp.MUTED}; font-weight:600; letter-spacing:.8px; text-transform:uppercase; }}
 .kpi .val {{ font-size:36px; font-weight:800; color:{GREEN}; line-height:1.2; margin-top:4px; }}
 .kpi.d .val {{ color:{GREEN_D}; }}
-.kpi.alert {{ border-left-color:{rp.RED}; }}
-.kpi.alert .val {{ color:{rp.RED}; }}
 .kpi .unit {{ font-size:16px; font-weight:500; color:{rp.MUTED}; margin-left:8px; }}
 
 .sec {{ display:flex; align-items:center; justify-content:space-between; margin:2px 0 10px 0; }}
@@ -73,8 +71,8 @@ span[data-baseweb="tag"] {{ background-color:{GREEN} !important; color:#fff !imp
 """, unsafe_allow_html=True)
 
 
-def kpi_card(label, value, unit, dark=False, alert=False):
-    st.markdown(f'<div class="kpi{" d" if dark else ""}{" alert" if alert else ""}"><div class="lbl">{label}</div>'
+def kpi_card(label, value, unit, dark=False):
+    st.markdown(f'<div class="kpi{" d" if dark else ""}"><div class="lbl">{label}</div>'
                 f'<div class="val">{value}<span class="unit">{unit}</span></div></div>',
                 unsafe_allow_html=True)
 
@@ -194,6 +192,8 @@ if d.empty:
 # ---------------- Calculations ----------------
 kp = dl.kpis(d)
 gt, gtotal = dl.glue_table(d, resin_names)
+kp["resin"] = gtotal                                              # Total resin usage (kg)
+kp["cons"] = gtotal / kp["prod"] if kp["prod"] else None          # Consumption resin avg (kg/m³)
 bt = dl.board_table(d, by="group" if group_on else "board")
 thk, thk_info = dl.thickness_table(d)
 prod = dl.product_table(d, by="group" if group_on else "board")
@@ -229,10 +229,9 @@ c1, c2, c3 = st.columns(3, gap="medium")
 with c1:
     kpi_card("Production Output", f"{kp['prod']:,.2f}", "m³")
 with c2:
-    kpi_card("Reject After Press", f"{kp['reject']:,.2f}", "m³", dark=True)
+    kpi_card("Total Resin Usage", f"{kp['resin']:,.0f}", "kg", dark=True)
 with c3:
-    kpi_card("% Reject After Press", "-" if kp["reject_pct"] is None else f"{kp['reject_pct']:.2f}", "%", dark=True,
-             alert=rp.reject_over_target(kp["reject_pct"]))
+    kpi_card("Consumption Resin Avg", "-" if kp["cons"] is None else f"{kp['cons']:.2f}", "kg/m³", dark=True)
 st.write("")
 
 # ---------------- Resin usage ----------------

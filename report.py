@@ -18,11 +18,6 @@ LOGO_PATH = Path(__file__).parent / "logo.png"
 COMPANY = "METRO M.D.F. CO., LTD"
 
 
-def reject_over_target(reject_pct):
-    """True when %Reject (rounded to the 2 decimals that are displayed) is above the target."""
-    return reject_pct is not None and round(reject_pct, 2) > REJECT_TARGET
-
-
 def logo_data_uri():
     try:
         return "data:image/png;base64," + base64.b64encode(LOGO_PATH.read_bytes()).decode()
@@ -49,7 +44,6 @@ ROW_LINE = "#E9EEDB"
 TOT_BG = "#E6EDCB"
 SOFT = "#EEF3C6"       # light text on the dark banner
 RED = "#C62828"        # alert colour (reject above target)
-REJECT_TARGET = 1.0    # % Reject after press target; above it the KPI turns red
 OTHERS = "#BFC2BA"
 PIE_COLORS = [GREEN_D, OLIVE, GREEN, LIME, GREY_D, GREEN_L, GREY, "#C7D68B", "#8FB89A"]
 
@@ -301,7 +295,7 @@ def _draw_footer(cv, foot_y, line):
     bg, M, W = cv.bg, cv.M, cv.W
     bg.plot([M, W - M], [foot_y, foot_y], color=LINE, lw=1)
     bg.text(M, foot_y + 0.25, f"Source: {line} production report (Excel). Resin = net used (TT) per resin code; "
-            "Reject % = Reject after press ÷ Production output × 100.", fontsize=8.5, color=MUTED, va="center")
+            "Consumption avg = Total resin usage ÷ Production output.", fontsize=8.5, color=MUTED, va="center")
 
 
 def _page1(kp, gt, bt, thk, thk_info, line, period, dpi):
@@ -327,10 +321,10 @@ def _page1(kp, gt, bt, thk, thk_info, line, period, dpi):
     # ---- KPI cards ----
     gap = 0.3
     kw = (CW - 2 * gap) / 3
-    pct = "-" if kp["reject_pct"] is None else f"{kp['reject_pct']:.2f}"
+    cons = "-" if kp["cons"] is None else f"{kp['cons']:.2f}"
     kpi_items = [("PRODUCTION OUTPUT", f"{kp['prod']:,.2f}", "m³", GREEN),
-                 ("REJECT AFTER PRESS", f"{kp['reject']:,.2f}", "m³", GREEN_D),
-                 ("% REJECT AFTER PRESS", pct, "%", RED if reject_over_target(kp["reject_pct"]) else GREEN_D)]
+                 ("TOTAL RESIN USAGE", f"{kp['resin']:,.0f}", "kg", GREEN_D),
+                 ("CONSUMPTION RESIN AVG", cons, "kg/m³", GREEN_D)]
     for i, (lab, val, unit, col) in enumerate(kpi_items):
         x = M + i * (kw + gap)
         card(x, kpi_y, kw, kpi_h)

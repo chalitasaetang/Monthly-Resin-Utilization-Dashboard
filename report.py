@@ -43,7 +43,10 @@ SIDEBAR = "#E8EDD3"
 ROW_LINE = "#E9EEDB"
 TOT_BG = "#E6EDCB"
 SOFT = "#EEF3C6"       # light text on the dark banner
-RED = "#C62828"        # alert colour (reject above target)
+RED = "#C62828"        # alert colour
+YELLOW = "#F2B705"     # warning bar accent (board types not in any group)
+YELLOW_BG = "#FFF3C4"  # warning bar background
+YELLOW_TX = "#5C4500"  # warning bar text
 OTHERS = "#BFC2BA"
 PIE_COLORS = [GREEN_D, OLIVE, GREEN, LIME, GREY_D, GREEN_L, GREY, "#C7D68B", "#8FB89A"]
 
@@ -291,6 +294,41 @@ def _draw_banner(cv, line, period, page):
             color=SOFT, va="center", ha="right")
 
 
+def _ungrouped_text(ungrouped, max_chars=165, max_lines=3):
+    """Wrap the ungrouped-board-type warning into lines for the export pages."""
+    import textwrap
+    names = list(ungrouped)
+    body = f"New board types not in any group ({len(names)}): " + " | ".join(names)
+    lines = textwrap.wrap(body, width=max_chars) or [body]
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1][:max_chars - 12].rstrip() + " ..."
+    return lines
+
+
+def _warn_height(ungrouped):
+    """Vertical space (inches) the yellow warning bar needs on an export page; 0 when there is nothing to warn."""
+    if not ungrouped:
+        return 0.0
+    return 0.3 + 0.24 * len(_ungrouped_text(ungrouped)) + 0.4
+
+
+def _draw_ungrouped_warning(cv, y, ungrouped):
+    if not ungrouped:
+        return
+    lines = _ungrouped_text(ungrouped)
+    h = _warn_height(ungrouped) - 0.4
+    M, CW, bg = cv.M, cv.CW, cv.bg
+    bg.add_patch(FancyBboxPatch((M, y), CW, h, boxstyle="round,pad=0,rounding_size=0.1",
+                                fc=YELLOW_BG, ec=YELLOW, lw=1.2))
+    bg.add_patch(Rectangle((M, y + 0.06), 0.09, h - 0.12, fc=YELLOW, ec="none"))
+    for i, ln in enumerate(lines):
+        bg.text(M + 0.3, y + 0.2 + 0.24 * i + 0.02, ln, fontsize=10, color=YELLOW_TX,
+                fontweight="bold" if i == 0 else "normal", va="center")
+    bg.text(M + 0.3, y + h - 0.13, "Add them to board_groups.csv (or the grouping file) so they roll up into a group.",
+            fontsize=8.5, color=YELLOW_TX, va="center")
+
+
 def _draw_footer(cv, foot_y, line):
     bg, M, W = cv.bg, cv.M, cv.W
     bg.plot([M, W - M], [foot_y, foot_y], color=LINE, lw=1)
@@ -298,11 +336,12 @@ def _draw_footer(cv, foot_y, line):
             "Consumption avg = Total resin usage ÷ Production output.", fontsize=8.5, color=MUTED, va="center")
 
 
-def _page1(kp, gt, bt, thk, thk_info, line, period, dpi):
+def _page1(kp, gt, bt, thk, thk_info, line, period, dpi, ungrouped=None):
     M = PAGE_M
     n_res = max(len(gt), 1)
     n_bt = len(bt)
-    kpi_y, kpi_h = BANNER_H + 0.4, 1.25
+    warn_y, warn_h = BANNER_H + 0.4, _warn_height(ungrouped)
+    kpi_y, kpi_h = BANNER_H + 0.4 + warn_h, 1.25
     s1_y = kpi_y + kpi_h + 0.4
     card1_y = s1_y + 0.45
     card1_h = max(3.2, 0.44 * n_res + 1.4)
@@ -317,6 +356,7 @@ def _page1(kp, gt, bt, thk, thk_info, line, period, dpi):
     fig, bg, sub, card, section, CW, W = cv.fig, cv.bg, cv.sub, cv.card, cv.section, cv.CW, cv.W
 
     _draw_banner(cv, line, period, 1)
+    _draw_ungrouped_warning(cv, warn_y, ungrouped)
 
     # ---- KPI cards ----
     gap = 0.3
@@ -398,10 +438,11 @@ def _page1(kp, gt, bt, thk, thk_info, line, period, dpi):
     return fig
 
 
-def _page2(prod, trends, year, line, period, dpi):
+def _page2(prod, trends, year, line, period, dpi, ungrouped=None):
     M = PAGE_M
     n_half = (len(prod) + 1) // 2
-    s1_y = BANNER_H + 0.4
+    warn_y, warn_h = BANNER_H + 0.4, _warn_height(ungrouped)
+    s1_y = BANNER_H + 0.4 + warn_h
     card1_y = s1_y + 0.45
     card1_h = 0.3 + 0.36 + 0.27 * n_half + 0.75
     n_tr = len(trends)
@@ -415,6 +456,7 @@ def _page2(prod, trends, year, line, period, dpi):
     bg, sub, card, section, CW = cv.bg, cv.sub, cv.card, cv.section, cv.CW
 
     _draw_banner(cv, line, period, 2)
+    _draw_ungrouped_warning(cv, warn_y, ungrouped)
 
     # ---- product table (2 columns) ----
     section(s1_y, "Production by Product (Thickness + Board Type Group)")
@@ -457,12 +499,12 @@ def _page2(prod, trends, year, line, period, dpi):
     return cv.fig
 
 
-def build_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year, dpi=150):
+def build_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year, dpi=150, ungrouped=None):
     """Return (jpg_page1, jpg_page2, pdf_2_pages) as bytes."""
     from matplotlib.backends.backend_pdf import PdfPages
     matplotlib.rcParams["pdf.fonttype"] = 42
-    figs = [_page1(kp, gt, bt, thk, thk_info, line, period, dpi),
-            _page2(prod, trends, year, line, period, dpi)]
+    figs = [_page1(kp, gt, bt, thk, thk_info, line, period, dpi, ungrouped),
+            _page2(prod, trends, year, line, period, dpi, ungrouped)]
     jpgs = []
     for f in figs:
         buf = io.BytesIO()

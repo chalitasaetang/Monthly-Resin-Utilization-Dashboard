@@ -13,6 +13,17 @@ GREEN_DD, GREEN_D, GREEN, GREEN_L = rp.GREEN_DD, rp.GREEN_D, rp.GREEN, rp.GREEN_
 
 st.set_page_config(page_title="Monthly Resin Utilization Dashboard", page_icon="🌲", layout="wide")
 
+# ---- guard: app.py and report.py must be the same version ----
+if not hasattr(rp, "YELLOW_BG"):
+    _rp_file = Path(rp.__file__)
+    st.error(
+        "report.py on the server is an OLD version (it does not match app.py), so the dashboard cannot start.\n\n"
+        f"- File being loaded: `{_rp_file}`\n"
+        f"- Its size: {_rp_file.stat().st_size:,} bytes (the new report.py is 23,892 bytes)\n\n"
+        "Fix: upload the new report.py to the SAME folder as app.py in GitHub (replace the old file, "
+        "do not add a copy with another name), then Reboot app.")
+    st.stop()
+
 st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');

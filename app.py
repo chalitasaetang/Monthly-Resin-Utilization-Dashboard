@@ -45,6 +45,11 @@ header[data-testid="stHeader"] {{ background: transparent; }}
 .kpi.d .val {{ color:{GREEN_D}; }}
 .kpi .unit {{ font-size:16px; font-weight:500; color:{rp.MUTED}; margin-left:8px; }}
 
+.warnbar {{ background:{rp.YELLOW_BG}; border:1px solid {rp.YELLOW}; border-left:7px solid {rp.YELLOW}; border-radius:12px;
+            padding:12px 18px; color:{rp.YELLOW_TX}; font-size:14px; line-height:1.5; margin-bottom:6px; }}
+.warnbar b {{ font-weight:800; }}
+.warnbar small {{ display:block; margin-top:2px; opacity:.85; }}
+
 .sec {{ display:flex; align-items:center; justify-content:space-between; margin:2px 0 10px 0; }}
 .sec .n {{ font-size:19px; font-weight:700; color:{GREEN_D}; border-left:6px solid {GREEN}; padding-left:12px; }}
 .sec .x {{ font-size:14px; font-weight:600; color:{rp.INK}; }}
@@ -116,8 +121,8 @@ def load(file_bytes, line):
 
 
 @st.cache_data(show_spinner="Preparing PDF / JPG ...")
-def make_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year):
-    return rp.build_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year)
+def make_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year, ungrouped):
+    return rp.build_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year, ungrouped=ungrouped)
 
 
 def period_label(months, year):
@@ -210,7 +215,16 @@ st.markdown(
     f'<div class="rw"><div class="r">{rp.COMPANY}<small>Executive summary</small></div>{_logo_html}</div></div>',
     unsafe_allow_html=True)
 st.write("")
-_jpg1, _jpg2, _pdf = make_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year_all)
+# board types found in the uploaded file that are not in any group (only matters when grouping is on)
+_warn_names = list(ungrouped) if (group_on and ungrouped) else []
+if _warn_names:
+    st.markdown(
+        f'<div class="warnbar"><b>New board types not in any group ({len(_warn_names)}):</b> '
+        f'{html.escape(" | ".join(_warn_names))}'
+        f'<small>Add them to board_groups.csv (or the grouping file) so they roll up into a group.</small></div>',
+        unsafe_allow_html=True)
+    st.write("")
+_jpg1, _jpg2, _pdf = make_exports(kp, gt, bt, thk, thk_info, line, period, prod, trends, year_all, _warn_names)
 _fn = f"Monthly_Resin_Utilization_{line.replace(' ', '')}"
 _sp, b1, b2, b3 = st.columns([1.3, 1.1, 1, 1])
 with b1:
